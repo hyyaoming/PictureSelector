@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">image_select</string>
+    <string name="all_images">全部图片</string>
+    <string name="select_image">图片选择</string>
+    <string name="max_select_image">最多只能选%1s张图片哦~</string>
+    <string name="preview_image_count">预览(%1s)</string>
+    <string name="complete">完成</string>
+    <string name="complete_with_select_image_count">完成(%1$s/%2$s)</string>
+</resources>
