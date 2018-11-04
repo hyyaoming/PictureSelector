@@ -4,21 +4,32 @@ import java.io.Serializable;
 import java.util.ArrayList;
 
 public class ImageFolder implements Serializable {
+    public String name;
+    public ArrayList<ImageItem> images;
 
-    public String name;  //当前文件夹的名字
-    public String path;  //当前文件夹的路径
-    public ImageItem cover;   //当前文件夹需要要显示的缩略图，默认为最近的一次图片
-    public ArrayList<ImageItem> images;  //当前文件夹下所有图片的集合
+    public ImageFolder(String name) {
+        this.name = name;
+    }
 
-    /** 只要文件夹的路径和名字相同，就认为是相同的文件夹 */
-    @Override
-    public boolean equals(Object o) {
-        try {
-            ImageFolder other = (ImageFolder) o;
-            return this.path.equalsIgnoreCase(other.path) && this.name.equalsIgnoreCase(other.name);
-        } catch (ClassCastException e) {
-            e.printStackTrace();
+    public ImageFolder(String name, ArrayList<ImageItem> images) {
+        this.name = name;
+        this.images = images;
+    }
+
+    public void addImage(ImageItem image) {
+        if (image != null && image.path.length() > 0) {
+            if (images == null) {
+                images = new ArrayList<>();
+            }
+            images.add(image);
         }
-        return super.equals(o);
+    }
+
+    @Override
+    public String toString() {
+        return "Folder{" +
+                "name='" + name + '\'' +
+                ", images=" + images +
+                '}';
     }
 }

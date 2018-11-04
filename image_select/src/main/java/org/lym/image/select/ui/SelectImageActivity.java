@@ -5,14 +5,18 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 
 import org.lym.image.select.R;
@@ -36,8 +40,9 @@ import java.util.List;
  * @version 2.9.0
  * @since 2018/11/2/002
  */
-public class SelectImageActivity extends AppCompatActivity implements ImageDataSource.OnImagesLoadedListener, ImagesAdapter.OnItemClickListener, ImagesAdapter.OnImageSelectListener, View.OnClickListener, FolderAdapter.OnFolderSelectListener, SelectImageHelper.onImageSelectUpdateListener {
+public class SelectImageActivity extends AppCompatActivity implements ImagesAdapter.OnItemClickListener, ImagesAdapter.OnImageSelectListener, View.OnClickListener, FolderAdapter.OnFolderSelectListener, SelectImageHelper.onImageSelectUpdateListener, ImageDataSource.DataCallback {
     public static final String RESULT_IMAGES = "result_images";
+    private static final int REQUEST_PREVIEW_IMAGES = 0x002f;
     private List<ImageFolder> mFolderList;
     private RecyclerView mImageRv;
     private RecyclerView mFolderRv;
@@ -56,12 +61,17 @@ public class SelectImageActivity extends AppCompatActivity implements ImageDataS
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_select_image);
+        setStatusBarColor();
         mSelectImageItem = SelectImageHelper.buildInstance();
         mSelectImageItem.setOnImageSelectUpdateListener(this);
         mSelectorSpec = SelectorSpec.getInstance();
         initView();
         initAdapter();
-        new ImageDataSource(this, this);
+        initData();
+    }
+
+    private void initData() {
+        ImageDataSource.loadImageForSDCard(this, this);
     }
 
     private void initView() {
@@ -152,16 +162,6 @@ public class SelectImageActivity extends AppCompatActivity implements ImageDataS
         mFolderRv.setAdapter(mFolderAdapter);
     }
 
-    @Override
-    public void onImagesLoaded(List<ImageFolder> imageFolders) {
-        if (null != imageFolders && !imageFolders.isEmpty()) {
-            mFolderList = imageFolders;
-            mImagesAdapter.setNewData(mFolderList.get(0).images);
-            updateFolderRv();
-            resetButton();
-        }
-    }
-
     private void updateFolderRv() {
         mFolderAdapter.setNewData(mFolderList);
     }
@@ -172,6 +172,17 @@ public class SelectImageActivity extends AppCompatActivity implements ImageDataS
             closeFolderRv();
         } else {
             super.onBackPressed();
+        }
+    }
+
+    /**
+     * 修改状态栏颜色
+     */
+    private void setStatusBarColor() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Window window = getWindow();
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.setStatusBarColor(ContextCompat.getColor(this, R.color.theme_color));
         }
     }
 
@@ -194,7 +205,21 @@ public class SelectImageActivity extends AppCompatActivity implements ImageDataS
         mSelectImageItem.selectPosition = position;
         mSelectImageItem.folderAllImage = true;
         mSelectImageItem.addAllImageItem(mImagesAdapter.getAllImageItem());
-        PreviewImageActivity.start(this);
+        PreviewImageActivity.start(this, REQUEST_PREVIEW_IMAGES);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode == Activity.RESULT_OK && requestCode == REQUEST_PREVIEW_IMAGES) {
+            if (null != data) {
+                ArrayList<String> paths = data.getStringArrayListExtra(RESULT_IMAGES);
+                Intent intent = new Intent();
+                intent.putStringArrayListExtra(RESULT_IMAGES, paths);
+                setResult(RESULT_OK, intent);
+                finish();
+            }
+        }
     }
 
     @Override
@@ -221,7 +246,7 @@ public class SelectImageActivity extends AppCompatActivity implements ImageDataS
         } else if (viewId == R.id.btn_preview) {
             mSelectImageItem.folderAllImage = false;
             mSelectImageItem.resetPosition();
-            PreviewImageActivity.start(this);
+            PreviewImageActivity.start(this, REQUEST_PREVIEW_IMAGES);
         } else if (viewId == R.id.masking) {
             closeFolderRv();
         } else if (viewId == R.id.btn_complete) {
@@ -252,5 +277,20 @@ public class SelectImageActivity extends AppCompatActivity implements ImageDataS
     @Override
     public void notify(int position) {
         updateImageItemSelect(position);
+    }
+
+    @Override
+    public void onSuccess(final ArrayList<ImageFolder> folders) {
+        if (null != folders && !folders.isEmpty()) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mFolderList = folders;
+                    mImagesAdapter.setNewData(mFolderList.get(0).images);
+                    updateFolderRv();
+                    resetButton();
+                }
+            });
+        }
     }
 }

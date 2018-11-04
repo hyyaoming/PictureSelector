@@ -12,6 +12,7 @@
     <include layout="@layout/select_image_title" />
 
     <RelativeLayout
+        android:id="@+id/bottom_bar"
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_gravity="bottom"
