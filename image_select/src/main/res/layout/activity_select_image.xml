@@ -2,20 +2,45 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#232E32"
+    android:background="@color/theme_color"
     android:orientation="vertical">
 
     <include layout="@layout/select_image_title" />
 
-    <android.support.v7.widget.RecyclerView
-        android:id="@+id/rv_image"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clipChildren="false"
-        android:clipToPadding="false"
-        android:paddingTop="@dimen/image_grid_spacing"
-        android:paddingBottom="@dimen/image_grid_spacing" />
+        android:layout_weight="1">
+
+        <android.support.v7.widget.RecyclerView
+            android:id="@+id/rv_image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:paddingBottom="@dimen/image_grid_spacing"
+            android:paddingTop="@dimen/image_grid_spacing" />
+
+        <View
+            android:id="@+id/masking"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#c4111212"
+            android:visibility="gone" />
+
+        <android.support.v7.widget.RecyclerView
+            android:id="@+id/rv_folder"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="80dp"
+            android:background="@android:color/white"
+            android:fadingEdge="none"
+            android:fadingEdgeLength="0dp"
+            android:overScrollMode="never"
+            android:paddingBottom="3dp"
+            android:paddingTop="3dp"
+            android:scrollbars="vertical" />
+    </FrameLayout>
 
     <include layout="@layout/select_image_bottom_layout" />
 </LinearLayout>

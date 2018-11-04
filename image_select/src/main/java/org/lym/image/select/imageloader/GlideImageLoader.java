@@ -14,7 +14,12 @@ import com.bumptech.glide.request.RequestOptions;
  */
 public class GlideImageLoader implements UIImageLoader {
     @Override
-    public void imageLoader(ImageView imageView, String path, int size) {
-        Glide.with(imageView.getContext()).asBitmap().load(path).apply(new RequestOptions().override(size).centerCrop()).into(imageView);
+    public void imageLoader(ImageView imageView, String path, int height, int width) {
+        Glide.with(imageView.getContext()).asBitmap().load(path).apply(new RequestOptions().override(width, height)).into(imageView);
+    }
+
+    @Override
+    public void imageLoader(ImageView imageView, String path) {
+        Glide.with(imageView.getContext()).asBitmap().load(path).apply(new RequestOptions()).into(imageView);
     }
 }

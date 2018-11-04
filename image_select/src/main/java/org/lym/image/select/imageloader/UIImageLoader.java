@@ -15,7 +15,14 @@ public interface UIImageLoader extends Serializable {
     /**
      * @param imageView ImageView
      * @param path      图片加载路径
-     * @param size      图片加载大小
+     * @param height    高度
+     * @param width     宽度
      */
-    void imageLoader(ImageView imageView, String path, int size);
+    void imageLoader(ImageView imageView, String path, int height, int width);
+
+    /**
+     * @param imageView ImageView
+     * @param path      图片加载路径
+     */
+    void imageLoader(ImageView imageView, String path);
 }

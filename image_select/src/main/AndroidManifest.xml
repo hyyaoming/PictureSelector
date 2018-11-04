@@ -2,7 +2,10 @@
     package="org.lym.image.select">
 
     <application>
-        <activity android:name=".ui.SelectImageActivity" />
+        <activity
+            android:name=".ui.SelectImageActivity"
+            android:configChanges="orientation|screenSize" />
+        <activity android:name=".ui.PreviewImageActivity" />
     </application>
 
 </manifest>

@@ -1,10 +1,14 @@
 package org.lym.image.select;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 
+import org.lym.image.select.ui.SelectImageActivity;
+
 import java.lang.ref.WeakReference;
+import java.util.List;
 
 /**
  * Doc  图片选择器入口
@@ -40,6 +44,10 @@ public class PictureSelector {
 
     public SelectorSpec selectSpec() {
         return SelectorSpec.getCleanInstance().withPictureSelector(this);
+    }
+
+    public static List<String> obtainPathResult(Intent data) {
+        return data.getStringArrayListExtra(SelectImageActivity.RESULT_IMAGES);
     }
 
     @Nullable

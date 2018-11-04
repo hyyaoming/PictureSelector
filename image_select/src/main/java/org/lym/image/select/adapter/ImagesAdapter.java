@@ -13,6 +13,7 @@ import android.widget.Toast;
 import org.lym.image.select.R;
 import org.lym.image.select.SelectorSpec;
 import org.lym.image.select.bean.ImageItem;
+import org.lym.image.select.bean.SelectImageHelper;
 import org.lym.image.select.weight.SuperCheckBox;
 
 import java.util.ArrayList;
@@ -31,11 +32,13 @@ public class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     private Context mContext;
     private int mImageResize;
     private OnItemClickListener mOnItemClickListener;
+    private SelectImageHelper mSelectItemBean;
     private OnImageSelectListener mOnImageSelectListener;
     private SelectorSpec mSelectorSpec;
 
-    public ImagesAdapter(List<ImageItem> imageItems, RecyclerView recyclerView) {
+    public ImagesAdapter(List<ImageItem> imageItems, RecyclerView recyclerView, SelectImageHelper selectImageBean) {
         this.mImageItems = imageItems == null ? new ArrayList<ImageItem>() : imageItems;
+        this.mSelectItemBean = selectImageBean;
         this.mRecyclerView = recyclerView;
         this.mContext = recyclerView.getContext();
         mSelectorSpec = SelectorSpec.getInstance();
@@ -54,6 +57,10 @@ public class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         notifyDataSetChanged();
     }
 
+    public List<ImageItem> getAllImageItem() {
+        return mImageItems;
+    }
+
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
@@ -61,18 +68,18 @@ public class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     }
 
     @Override
-    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder viewHolder, final int i) {
+    public void onBindViewHolder(@NonNull final RecyclerView.ViewHolder viewHolder, int i) {
         final ImagesViewHolder imagesViewHolder = (ImagesViewHolder) viewHolder;
         if (null != mOnImageSelectListener) {
             imagesViewHolder.mSuperCheckBox.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    if (getSelectImageItem().size() >= mSelectorSpec.getMaxSelectImage() && imagesViewHolder.mSuperCheckBox.isChecked()) {
+                    if (mSelectItemBean.getSelectCount() >= mSelectorSpec.getMaxSelectImage() && imagesViewHolder.mSuperCheckBox.isChecked()) {
                         imagesViewHolder.mSuperCheckBox.setChecked(false);
                         String maxSelect = String.format(mContext.getString(R.string.max_select_image), String.valueOf(mSelectorSpec.getMaxSelectImage()));
                         Toast.makeText(mContext, maxSelect, Toast.LENGTH_LONG).show();
                     } else {
-                        mOnImageSelectListener.onImageSelect(imagesViewHolder.mSuperCheckBox, i);
+                        mOnImageSelectListener.onImageSelect(imagesViewHolder.mSuperCheckBox, viewHolder.getAdapterPosition());
                     }
                 }
             });
@@ -81,30 +88,20 @@ public class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
             imagesViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    mOnItemClickListener.onItemClick(i);
+                    mOnItemClickListener.onItemClick(viewHolder.getAdapterPosition());
                 }
             });
         }
         ImageItem item = getItem(i);
-        imagesViewHolder.mSuperCheckBox.setChecked(item.checked);
+        imagesViewHolder.mSuperCheckBox.setChecked(mSelectItemBean.contains(item));
         imagesViewHolder.mSuperCheckBox.setVisibility(mSelectorSpec.getMaxSelectImage() == 1 ? View.GONE : View.VISIBLE);
-        imagesViewHolder.mMaskView.setVisibility(item.checked ? View.VISIBLE : View.GONE);
-        mSelectorSpec.getImageLoader().imageLoader(imagesViewHolder.mImage, item.path, getImageResize(mContext));
+        imagesViewHolder.mMaskView.setVisibility(mSelectItemBean.contains(item) ? View.VISIBLE : View.GONE);
+        mSelectorSpec.getImageLoader().imageLoader(imagesViewHolder.mImage, item.path);
     }
 
     @Override
     public int getItemCount() {
         return mImageItems.size();
-    }
-
-    public List<ImageItem> getSelectImageItem() {
-        List<ImageItem> mSelectImages = new ArrayList<>();
-        for (ImageItem imageItem : mImageItems) {
-            if (imageItem.checked) {
-                mSelectImages.add(imageItem);
-            }
-        }
-        return mSelectImages;
     }
 
     public ImageItem getItem(int position) {
@@ -122,10 +119,6 @@ public class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
             }
         }
         return mImageResize;
-    }
-
-    public int getSelectImageCount() {
-        return getSelectImageItem().size();
     }
 
     public interface OnItemClickListener {

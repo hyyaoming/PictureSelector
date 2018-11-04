@@ -11,7 +11,6 @@ public class ImageItem implements Serializable {
     public int height;        //图片的高度
     public String mimeType;   //图片的类型
     public long addTime;      //图片的创建时间
-    public boolean checked; //图片是否选中
 
     /**
      * 图片的路径和创建时间相同就认为是同一张图片
