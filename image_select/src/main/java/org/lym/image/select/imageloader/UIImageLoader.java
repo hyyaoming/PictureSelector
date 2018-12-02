@@ -13,12 +13,28 @@ import java.io.Serializable;
  */
 public interface UIImageLoader extends Serializable {
     /**
+     * @param imageView    ImageView
+     * @param path         图片加载路径
+     * @param height       高度
+     * @param width        宽度
+     * @param defaultImage 默认图
+     */
+    void imageLoader(ImageView imageView, String path, int height, int width, int defaultImage);
+
+    /**
      * @param imageView ImageView
      * @param path      图片加载路径
      * @param height    高度
      * @param width     宽度
      */
     void imageLoader(ImageView imageView, String path, int height, int width);
+
+    /**
+     * @param imageView    ImageView
+     * @param path         图片加载路径
+     * @param defaultImage 默认图
+     */
+    void imageLoader(ImageView imageView, String path, int defaultImage);
 
     /**
      * @param imageView ImageView

@@ -6,6 +6,10 @@
             android:name=".ui.SelectImageActivity"
             android:configChanges="orientation|screenSize" />
         <activity android:name=".ui.PreviewImageActivity" />
+        <activity
+            android:name=".ui.CameraActivity"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            />
     </application>
 
 </manifest>

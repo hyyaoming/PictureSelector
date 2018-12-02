@@ -23,6 +23,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int STORAGE_REQUEST_CODE = 100;
     private static final int IMAGES_CODE = 101;
     private ResultImageAdapter mResultAdapter;
+    private boolean mTakePhoto;
     private boolean single;
 
     @Override
@@ -49,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 single = false;
+                mTakePhoto = false;
                 jumpToSelectImage();
             }
         });
@@ -56,6 +58,15 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btn_single_image).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                single = true;
+                mTakePhoto = false;
+                jumpToSelectImage();
+            }
+        });
+        findViewById(R.id.btn_take_photo).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mTakePhoto = true;
                 single = true;
                 jumpToSelectImage();
             }
@@ -70,6 +81,11 @@ public class MainActivity extends AppCompatActivity {
                     .selectSpec()
                     .setImageLoader(new GlideImageLoader())
                     .setSpanCount(3)
+                    .setOpenCamera(mTakePhoto)
+                    .setNeedCrop(true)
+                    .setOutputX(200)
+                    .setOutputY(200)
+                    .setAuthority("org.lym.picture.selector.fileprovider")
                     .setMaxSelectImage(single ? 1 : 9)
                     .startForResult(IMAGES_CODE);
         }

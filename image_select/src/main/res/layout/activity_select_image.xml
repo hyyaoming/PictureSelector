@@ -18,14 +18,26 @@
             android:layout_height="match_parent"
             android:clipChildren="false"
             android:clipToPadding="false"
-            android:paddingBottom="@dimen/image_grid_spacing"
-            android:paddingTop="@dimen/image_grid_spacing" />
+            android:paddingTop="@dimen/image_grid_spacing"
+            android:paddingBottom="@dimen/image_grid_spacing" />
+
+        <TextView
+            android:id="@+id/tv_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/time_bg_color"
+            android:paddingLeft="10dp"
+            android:paddingTop="5dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="5dp"
+            android:textColor="@android:color/white"
+            android:textSize="12sp" />
 
         <View
             android:id="@+id/masking"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#c4111212"
+            android:background="@color/mask_bg_color"
             android:visibility="gone" />
 
         <android.support.v7.widget.RecyclerView
@@ -37,8 +49,8 @@
             android:fadingEdge="none"
             android:fadingEdgeLength="0dp"
             android:overScrollMode="never"
-            android:paddingBottom="3dp"
             android:paddingTop="3dp"
+            android:paddingBottom="3dp"
             android:scrollbars="vertical" />
     </FrameLayout>
 

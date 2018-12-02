@@ -16,13 +16,29 @@ import org.lym.image.select.ui.SelectImageActivity;
  * @since 2018/11/2/002
  */
 public final class SelectorSpec {
+    private static final int CROP_SIZE = 200;
+    //剪裁X轴比例
+    private int mAspectX;
+    //剪裁Y轴比例
+    private int mAspectY;
+    //剪裁X大小
+    private int mOutputX;
+    //剪裁Ya大小
+    private int mOutputY;
+    //工程目录fileProvider文件路径
+    private String mAuthority;
+    //最多选中图片数量
     private int mMaxSelectImage;
+    //图片一行展示几张
     private int mSpanCount;
+    //默认图片加载方式
+    private boolean mIsOpenCamera;
     private UIImageLoader mImageLoader;
+    //是否开启剪裁
+    private boolean mNeedCrop;
     private PictureSelector mPictureSelector;
 
     private SelectorSpec() {
-
     }
 
     public static SelectorSpec getCleanInstance() {
@@ -37,8 +53,67 @@ public final class SelectorSpec {
 
     private void resetSpec() {
         this.mSpanCount = 3;
+        this.mAspectX = 1;
+        this.mAspectY = 1;
+        this.mOutputX = CROP_SIZE;
+        this.mOutputY = CROP_SIZE;
         this.mMaxSelectImage = 1;
+        this.mIsOpenCamera = false;
         this.mImageLoader = new GlideImageLoader();
+    }
+
+    public String getAuthority() {
+        return mAuthority == null ? "" : mAuthority;
+    }
+
+    public SelectorSpec setAuthority(String authority) {
+        mAuthority = authority;
+        return this;
+    }
+
+    public int getAspectX() {
+        return mAspectX;
+    }
+
+    public SelectorSpec setAspectX(int aspectX) {
+        this.mAspectX = aspectX;
+        return this;
+    }
+
+    public int getAspectY() {
+        return mAspectY;
+    }
+
+    public SelectorSpec setAspectY(int aspectY) {
+        this.mAspectY = aspectY;
+        return this;
+    }
+
+    public int getOutputX() {
+        return mOutputX;
+    }
+
+    public SelectorSpec setOutputX(int outputX) {
+        this.mOutputX = outputX;
+        return this;
+    }
+
+    public int getOutputY() {
+        return mOutputY;
+    }
+
+    public SelectorSpec setOutputY(int outputY) {
+        this.mOutputY = outputY;
+        return this;
+    }
+
+    public boolean isNeedCrop() {
+        return mNeedCrop;
+    }
+
+    public SelectorSpec setNeedCrop(boolean needCrop) {
+        this.mNeedCrop = needCrop;
+        return this;
     }
 
     public SelectorSpec withPictureSelector(PictureSelector pictureSelector) {
@@ -55,12 +130,25 @@ public final class SelectorSpec {
         return this;
     }
 
+    public boolean singleImage() {
+        return mMaxSelectImage == 1;
+    }
+
     public int getSpanCount() {
         return mSpanCount;
     }
 
     public SelectorSpec setSpanCount(int spanCount) {
         this.mSpanCount = spanCount;
+        return this;
+    }
+
+    public boolean isOpenCamera() {
+        return mIsOpenCamera;
+    }
+
+    public SelectorSpec setOpenCamera(boolean openCamera) {
+        this.mIsOpenCamera = openCamera;
         return this;
     }
 

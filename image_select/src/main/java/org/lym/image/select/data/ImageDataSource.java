@@ -4,7 +4,9 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.MediaStore;
+import android.support.annotation.RequiresApi;
 
 import org.lym.image.select.bean.ImageFolder;
 import org.lym.image.select.bean.ImageItem;
@@ -14,6 +16,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * 获取系统相册中的图片
+ *
+ * @author ym.li
+ * @since 2018年11月12日11:13:19
+ */
 public class ImageDataSource {
     /**
      * 从SDCard加载图片
@@ -24,6 +32,7 @@ public class ImageDataSource {
     public static void loadImageForSDCard(final Context context, final DataCallback callback) {
         //由于扫描图片是耗时的操作，所以要在子线程处理。
         new Thread(new Runnable() {
+            @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
             @Override
             public void run() {
                 //扫描图片
@@ -31,6 +40,9 @@ public class ImageDataSource {
                 ContentResolver mContentResolver = context.getContentResolver();
                 Cursor mCursor = mContentResolver.query(mImageUri, new String[]{
                                 MediaStore.Images.Media.DATA,
+                                MediaStore.Images.Media.WIDTH,
+                                MediaStore.Images.Media.HEIGHT,
+                                MediaStore.Images.Media.SIZE,
                                 MediaStore.Images.Media.DISPLAY_NAME,
                                 MediaStore.Images.Media.DATE_ADDED,
                                 MediaStore.Images.Media._ID,
@@ -50,9 +62,15 @@ public class ImageDataSource {
                         long time = mCursor.getLong(mCursor.getColumnIndex(MediaStore.Images.Media.DATE_ADDED));
                         //获取图片类型
                         String mimeType = mCursor.getString(mCursor.getColumnIndex(MediaStore.Images.Media.MIME_TYPE));
+                        //获取图片宽度
+                        int width = mCursor.getInt(mCursor.getColumnIndex(MediaStore.Images.Media.WIDTH));
+                        //获取图片宽度
+                        int height = mCursor.getInt(mCursor.getColumnIndex(MediaStore.Images.Media.HEIGHT));
+                        //获取图片的大小
+                        int size = mCursor.getInt(mCursor.getColumnIndex(MediaStore.Images.Media.SIZE));
                         //过滤未下载完成或者不存在的文件
                         if (!"downloading".equals(getExtensionName(path)) && checkImgExists(path)) {
-                            images.add(new ImageItem(path, time, name, mimeType));
+                            images.add(new ImageItem(path, time, name, mimeType, width, height, size));
                         }
                     }
                     mCursor.close();

@@ -2,4 +2,7 @@
 <resources>
     <color name="theme_color">#22292c</color>
     <color name="theme_bg_color">#000000</color>
+    <color name="camera_item_bg">#80CCCCCC</color>
+    <color name="time_bg_color">#9e111212</color>
+    <color name="mask_bg_color">#c4111212</color>
 </resources>

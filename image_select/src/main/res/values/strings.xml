@@ -10,4 +10,6 @@
     <string name="zero_image">0张</string>
     <string name="choose">选择</string>
     <string name="preview_image_count">%1$s/%2$s</string>
+    <string name="open_camera_failure">打开相机失败</string>
+    <string name="photo_grid_capture">拍一张</string>
 </resources>

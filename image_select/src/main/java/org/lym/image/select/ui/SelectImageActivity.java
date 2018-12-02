@@ -1,13 +1,19 @@
 package org.lym.image.select.ui;
 
+import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.DefaultItemAnimator;
@@ -18,14 +24,16 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.TextView;
 
+import org.lym.image.select.tools.DateFormatUtil;
 import org.lym.image.select.R;
 import org.lym.image.select.SelectorSpec;
 import org.lym.image.select.adapter.FolderAdapter;
 import org.lym.image.select.adapter.ImagesAdapter;
 import org.lym.image.select.bean.ImageFolder;
 import org.lym.image.select.bean.ImageItem;
-import org.lym.image.select.bean.SelectImageHelper;
+import org.lym.image.select.tools.SelectImageHelper;
 import org.lym.image.select.data.ImageDataSource;
 import org.lym.image.select.weight.ImageGridDecoration;
 import org.lym.image.select.weight.SuperCheckBox;
@@ -40,22 +48,35 @@ import java.util.List;
  * @version 2.9.0
  * @since 2018/11/2/002
  */
-public class SelectImageActivity extends AppCompatActivity implements ImagesAdapter.OnItemClickListener, ImagesAdapter.OnImageSelectListener, View.OnClickListener, FolderAdapter.OnFolderSelectListener, SelectImageHelper.onImageSelectUpdateListener, ImageDataSource.DataCallback {
+public class SelectImageActivity extends AppCompatActivity implements ImagesAdapter.OnItemClickListener,
+        ImagesAdapter.OnImageSelectListener, View.OnClickListener, FolderAdapter.OnFolderSelectListener,
+        SelectImageHelper.OnImageSelectUpdateListener, ImageDataSource.DataCallback, ImagesAdapter.OnTakePhotoListener {
+    /**
+     * 返回图片路径
+     */
     public static final String RESULT_IMAGES = "result_images";
     private static final int REQUEST_PREVIEW_IMAGES = 0x002f;
+    private static final int CAMERA_REQUEST_PERMISSION = 0x004f;
+    private static final int REQUEST_CAMERA = 0x003f;
+    private static final long FOLDER_ANIM_DURATION = 300;
+    private static final long SHOW_OR_HIDE_TIME_ANIM_DURATION = FOLDER_ANIM_DURATION;
+    private static final long DELAYED_HIDE_TIME = 1500;
+    private static final long MILLISECOND = 1000;
     private List<ImageFolder> mFolderList;
     private RecyclerView mImageRv;
     private RecyclerView mFolderRv;
     private ImagesAdapter mImagesAdapter;
     private FolderAdapter mFolderAdapter;
-    private static final long FOLDER_ANIM_DURATION = 300;
     private SelectImageHelper mSelectImageItem;
     private View mMaskView;
     private Button mPreviewBtn;
     private Button mSelectFolderBtn;
     private Button mCompleteBtn;
     private SelectorSpec mSelectorSpec;
+    private TextView mPicTimeTv;
+    private boolean mShowTvTime;
     private boolean mOpenFolderRv;
+    private Handler mHandler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -70,11 +91,20 @@ public class SelectImageActivity extends AppCompatActivity implements ImagesAdap
         initData();
     }
 
-    private void initData() {
-        ImageDataSource.loadImageForSDCard(this, this);
+    /**
+     * 修改状态栏颜色
+     */
+    private void setStatusBarColor() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Window window = getWindow();
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.setStatusBarColor(ContextCompat.getColor(this, R.color.theme_color));
+        }
     }
 
     private void initView() {
+        //init time tv
+        mPicTimeTv = findViewById(R.id.tv_time);
         //init imageRv
         mImageRv = findViewById(R.id.rv_image);
         mImageRv.setHasFixedSize(true);
@@ -84,6 +114,8 @@ public class SelectImageActivity extends AppCompatActivity implements ImagesAdap
         GridLayoutManager manager = new GridLayoutManager(this, mSelectorSpec.getSpanCount());
         manager.setOrientation(GridLayoutManager.VERTICAL);
         mImageRv.setLayoutManager(manager);
+        //init imageRv listener
+        initImageRvListener();
         //init maskView
         mMaskView = findViewById(R.id.masking);
         mMaskView.setOnClickListener(this);
@@ -99,11 +131,82 @@ public class SelectImageActivity extends AppCompatActivity implements ImagesAdap
         mPreviewBtn = findViewById(R.id.btn_preview);
         mSelectFolderBtn = findViewById(R.id.btn_image_folder);
         mCompleteBtn = findViewById(R.id.btn_complete);
-        mCompleteBtn.setVisibility(mSelectorSpec.getMaxSelectImage() > 1 ? View.VISIBLE : View.GONE);
         //init listener
         mPreviewBtn.setOnClickListener(this);
         mSelectFolderBtn.setOnClickListener(this);
         mCompleteBtn.setOnClickListener(this);
+        findViewById(R.id.iv_back).setOnClickListener(this);
+    }
+
+    private void initImageRvListener() {
+        mImageRv.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+                changeTvTime();
+            }
+
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                changeTvTime();
+            }
+        });
+    }
+
+    private Runnable mHideTimeRunnable = new Runnable() {
+        @Override
+        public void run() {
+            hideTvTime();
+        }
+    };
+
+    private void changeTvTime() {
+        GridLayoutManager manager = (GridLayoutManager) mImageRv.getLayoutManager();
+        int firstVisibleItem = manager.findFirstVisibleItemPosition();
+        if (firstVisibleItem >= 0 && firstVisibleItem < mImagesAdapter.getData().size()) {
+            ImageItem image = mImagesAdapter.getData().get(firstVisibleItem);
+            String time = DateFormatUtil.getImageTime(image.addTime * MILLISECOND);
+            mPicTimeTv.setText(time);
+            showTvTime();
+            mHandler.removeCallbacks(mHideTimeRunnable);
+            mHandler.postDelayed(mHideTimeRunnable, DELAYED_HIDE_TIME);
+        }
+    }
+
+    private void showTvTime() {
+        if (mShowTvTime) {
+            ObjectAnimator.ofFloat(mPicTimeTv, "alpha", 0, 1).setDuration(SHOW_OR_HIDE_TIME_ANIM_DURATION).start();
+            resetShowTime();
+        }
+    }
+
+    private void hideTvTime() {
+        if (!mShowTvTime) {
+            ObjectAnimator.ofFloat(mPicTimeTv, "alpha", 1, 0).setDuration(SHOW_OR_HIDE_TIME_ANIM_DURATION).start();
+            resetShowTime();
+        }
+    }
+
+    private void resetShowTime() {
+        mShowTvTime = !mShowTvTime;
+    }
+
+    private void initAdapter() {
+        //init imageAdapter
+        mImagesAdapter = new ImagesAdapter(null, mImageRv, mSelectImageItem);
+        mImagesAdapter.setOnItemClickListener(this);
+        mImagesAdapter.setOnImageSelectListener(this);
+        mImagesAdapter.setOnTakePhotoListener(this);
+        mImageRv.setAdapter(mImagesAdapter);
+        //init folderAdapter
+        mFolderAdapter = new FolderAdapter(this, null);
+        mFolderAdapter.setFolderSelectListener(this);
+        mFolderRv.setAdapter(mFolderAdapter);
+    }
+
+    private void initData() {
+        ImageDataSource.loadImageForSDCard(this, this);
     }
 
     private void hideFolderRv() {
@@ -116,20 +219,36 @@ public class SelectImageActivity extends AppCompatActivity implements ImagesAdap
         });
     }
 
-    private void openFolderRv() {
-        if (!mOpenFolderRv) {
-            mMaskView.setVisibility(View.VISIBLE);
-            ObjectAnimator animator = ObjectAnimator.ofFloat(mFolderRv, "translationY",
-                    mFolderRv.getHeight(), 0).setDuration(FOLDER_ANIM_DURATION);
-            animator.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationStart(Animator animation) {
-                    super.onAnimationStart(animation);
-                    mFolderRv.setVisibility(View.VISIBLE);
-                }
-            });
-            animator.start();
-            mOpenFolderRv = !mOpenFolderRv;
+    @Override
+    public void onItemClick(int position) {
+        mSelectImageItem.selectPosition = position;
+        mSelectImageItem.folderAllImage = true;
+        mSelectImageItem.addAllImageItem(mImagesAdapter.getAllImageItem());
+        PreviewImageActivity.start(this, REQUEST_PREVIEW_IMAGES);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (null != data && resultCode == Activity.RESULT_OK) {
+            if (requestCode == REQUEST_PREVIEW_IMAGES) {
+                ArrayList<String> paths = data.getStringArrayListExtra(RESULT_IMAGES);
+                setResult(paths);
+            } else if (requestCode == REQUEST_CAMERA) {
+                ArrayList<String> list = new ArrayList<String>();
+                String path = data.getStringExtra("result");
+                list.add(path);
+                setResult(list);
+            }
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (mOpenFolderRv) {
+            closeFolderRv();
+        } else {
+            super.onBackPressed();
         }
     }
 
@@ -150,76 +269,19 @@ public class SelectImageActivity extends AppCompatActivity implements ImagesAdap
         }
     }
 
-    private void initAdapter() {
-        //init imageAdapter
-        mImagesAdapter = new ImagesAdapter(null, mImageRv, mSelectImageItem);
-        mImagesAdapter.setOnItemClickListener(this);
-        mImagesAdapter.setOnImageSelectListener(this);
-        mImageRv.setAdapter(mImagesAdapter);
-        //init folderAdapter
-        mFolderAdapter = new FolderAdapter(this, null);
-        mFolderAdapter.setFolderSelectListener(this);
-        mFolderRv.setAdapter(mFolderAdapter);
-    }
-
-    private void updateFolderRv() {
-        mFolderAdapter.setNewData(mFolderList);
-    }
-
     @Override
-    public void onBackPressed() {
-        if (mOpenFolderRv) {
-            closeFolderRv();
-        } else {
-            super.onBackPressed();
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CAMERA_REQUEST_PERMISSION && permissions[0].equals(Manifest.permission.CAMERA)) {
+            CameraActivity.startForResult(this, REQUEST_CAMERA);
         }
     }
 
-    /**
-     * 修改状态栏颜色
-     */
-    private void setStatusBarColor() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            Window window = getWindow();
-            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-            window.setStatusBarColor(ContextCompat.getColor(this, R.color.theme_color));
-        }
-    }
-
-    private void resetButton() {
-        int selectImageCount = mSelectImageItem.getSelectCount();
-        String previewCount = String.format(getString(R.string.preview_image_button_count), String.valueOf(selectImageCount));
-        mPreviewBtn.setText(previewCount);
-        mPreviewBtn.setEnabled(selectImageCount > 0);
-        if (selectImageCount > 0) {
-            mCompleteBtn.setEnabled(true);
-            mCompleteBtn.setText(getString(R.string.complete_with_select_image_count, String.valueOf(selectImageCount), String.valueOf(mSelectorSpec.getMaxSelectImage())));
-        } else {
-            mCompleteBtn.setEnabled(false);
-            mCompleteBtn.setText(getString(R.string.complete));
-        }
-    }
-
-    @Override
-    public void onItemClick(int position) {
-        mSelectImageItem.selectPosition = position;
-        mSelectImageItem.folderAllImage = true;
-        mSelectImageItem.addAllImageItem(mImagesAdapter.getAllImageItem());
-        PreviewImageActivity.start(this, REQUEST_PREVIEW_IMAGES);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode == Activity.RESULT_OK && requestCode == REQUEST_PREVIEW_IMAGES) {
-            if (null != data) {
-                ArrayList<String> paths = data.getStringArrayListExtra(RESULT_IMAGES);
-                Intent intent = new Intent();
-                intent.putStringArrayListExtra(RESULT_IMAGES, paths);
-                setResult(RESULT_OK, intent);
-                finish();
-            }
-        }
+    private void setResult(ArrayList<String> paths) {
+        Intent intent = new Intent();
+        intent.putStringArrayListExtra(RESULT_IMAGES, paths);
+        setResult(Activity.RESULT_OK, intent);
+        finish();
     }
 
     @Override
@@ -234,6 +296,21 @@ public class SelectImageActivity extends AppCompatActivity implements ImagesAdap
         resetButton();
     }
 
+    private void resetButton() {
+        int selectImageCount = mSelectImageItem.getSelectCount();
+        String previewCount = String.format(getString(R.string.preview_image_button_count), String.valueOf(selectImageCount));
+        mPreviewBtn.setText(previewCount);
+        mPreviewBtn.setEnabled(selectImageCount > 0);
+        if (selectImageCount > 0 && !mSelectorSpec.singleImage()) {
+            mCompleteBtn.setEnabled(true);
+            mCompleteBtn.setText(getString(R.string.complete_with_select_image_count,
+                    String.valueOf(selectImageCount), String.valueOf(mSelectorSpec.getMaxSelectImage())));
+        } else {
+            mCompleteBtn.setEnabled(selectImageCount > 0 && mSelectorSpec.singleImage());
+            mCompleteBtn.setText(getString(R.string.complete));
+        }
+    }
+
     @Override
     public void onClick(View v) {
         int viewId = v.getId();
@@ -245,7 +322,7 @@ public class SelectImageActivity extends AppCompatActivity implements ImagesAdap
             }
         } else if (viewId == R.id.btn_preview) {
             mSelectImageItem.folderAllImage = false;
-            mSelectImageItem.resetPosition();
+            mSelectImageItem.resetSelectPosition();
             PreviewImageActivity.start(this, REQUEST_PREVIEW_IMAGES);
         } else if (viewId == R.id.masking) {
             closeFolderRv();
@@ -258,6 +335,25 @@ public class SelectImageActivity extends AppCompatActivity implements ImagesAdap
             intent.putStringArrayListExtra(RESULT_IMAGES, paths);
             setResult(Activity.RESULT_OK, intent);
             finish();
+        } else if (viewId == R.id.iv_back) {
+            finish();
+        }
+    }
+
+    private void openFolderRv() {
+        if (!mOpenFolderRv) {
+            mMaskView.setVisibility(View.VISIBLE);
+            ObjectAnimator animator = ObjectAnimator.ofFloat(mFolderRv, "translationY",
+                    mFolderRv.getHeight(), 0).setDuration(FOLDER_ANIM_DURATION);
+            animator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+                    super.onAnimationStart(animation);
+                    mFolderRv.setVisibility(View.VISIBLE);
+                }
+            });
+            animator.start();
+            mOpenFolderRv = !mOpenFolderRv;
         }
     }
 
@@ -291,6 +387,19 @@ public class SelectImageActivity extends AppCompatActivity implements ImagesAdap
                     resetButton();
                 }
             });
+        }
+    }
+
+    private void updateFolderRv() {
+        mFolderAdapter.setNewData(mFolderList);
+    }
+
+    @Override
+    public void onTakePhoto() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            CameraActivity.startForResult(this, REQUEST_CAMERA);
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_REQUEST_PERMISSION);
         }
     }
 }

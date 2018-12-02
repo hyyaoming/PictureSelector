@@ -13,10 +13,9 @@ import android.widget.Toast;
 import org.lym.image.select.R;
 import org.lym.image.select.SelectorSpec;
 import org.lym.image.select.bean.ImageItem;
-import org.lym.image.select.bean.SelectImageHelper;
+import org.lym.image.select.tools.SelectImageHelper;
 import org.lym.image.select.weight.SuperCheckBox;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -27,25 +26,34 @@ import java.util.List;
  * @since 2018/11/2/002
  */
 public class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+    private static final int CAMERA_ITEM = 0X001F;
+    private static final int IMAGE_ITEM = 0X002F;
+    private Context mContext;
     private List<ImageItem> mImageItems;
     private RecyclerView mRecyclerView;
-    private Context mContext;
     private int mImageResize;
     private OnItemClickListener mOnItemClickListener;
     private SelectImageHelper mSelectItemBean;
     private OnImageSelectListener mOnImageSelectListener;
     private SelectorSpec mSelectorSpec;
+    private boolean mIsOpenCamera;
+    private OnTakePhotoListener mOnTakePhotoListener;
 
     public ImagesAdapter(List<ImageItem> imageItems, RecyclerView recyclerView, SelectImageHelper selectImageBean) {
-        this.mImageItems = imageItems == null ? new ArrayList<ImageItem>() : imageItems;
+        this.mImageItems = imageItems;
         this.mSelectItemBean = selectImageBean;
         this.mRecyclerView = recyclerView;
         this.mContext = recyclerView.getContext();
-        mSelectorSpec = SelectorSpec.getInstance();
+        this.mSelectorSpec = SelectorSpec.getInstance();
+        this.mIsOpenCamera = mSelectorSpec.isOpenCamera();
     }
 
     public void setOnItemClickListener(OnItemClickListener itemClickListener) {
         this.mOnItemClickListener = itemClickListener;
+    }
+
+    public void setOnTakePhotoListener(OnTakePhotoListener onTakePhotoListener) {
+        mOnTakePhotoListener = onTakePhotoListener;
     }
 
     public void setOnImageSelectListener(OnImageSelectListener imageSelectListener) {
@@ -64,11 +72,38 @@ public class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     @NonNull
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup viewGroup, int i) {
-        return new ImagesViewHolder(LayoutInflater.from(mContext).inflate(R.layout.item_images_list, viewGroup, false));
+        switch (i) {
+            case CAMERA_ITEM:
+                return new CameraViewHolder(LayoutInflater.from(mContext).inflate(R.layout.item_camera_list, viewGroup, false));
+            case IMAGE_ITEM:
+                return new ImagesViewHolder(LayoutInflater.from(mContext).inflate(R.layout.item_images_list, viewGroup, false));
+            default:
+                break;
+        }
+        return null;
     }
 
     @Override
     public void onBindViewHolder(@NonNull final RecyclerView.ViewHolder viewHolder, int i) {
+        if (viewHolder instanceof CameraViewHolder) {
+            bindCameraViewHolder(viewHolder);
+        } else if (viewHolder instanceof ImagesViewHolder) {
+            bindImagesViewHolder(viewHolder);
+        }
+    }
+
+    private void bindCameraViewHolder(RecyclerView.ViewHolder viewHolder) {
+        if (null != mOnTakePhotoListener) {
+            viewHolder.itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    mOnTakePhotoListener.onTakePhoto();
+                }
+            });
+        }
+    }
+
+    private void bindImagesViewHolder(final RecyclerView.ViewHolder viewHolder) {
         final ImagesViewHolder imagesViewHolder = (ImagesViewHolder) viewHolder;
         if (null != mOnImageSelectListener) {
             imagesViewHolder.mSuperCheckBox.setOnClickListener(new View.OnClickListener() {
@@ -79,7 +114,7 @@ public class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                         String maxSelect = String.format(mContext.getString(R.string.max_select_image), String.valueOf(mSelectorSpec.getMaxSelectImage()));
                         Toast.makeText(mContext, maxSelect, Toast.LENGTH_LONG).show();
                     } else {
-                        mOnImageSelectListener.onImageSelect(imagesViewHolder.mSuperCheckBox, viewHolder.getAdapterPosition());
+                        mOnImageSelectListener.onImageSelect(imagesViewHolder.mSuperCheckBox, viewHolder.getLayoutPosition());
                     }
                 }
             });
@@ -88,24 +123,23 @@ public class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
             imagesViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    mOnItemClickListener.onItemClick(viewHolder.getAdapterPosition());
+                    mOnItemClickListener.onItemClick(getSurePosition(viewHolder.getLayoutPosition()));
                 }
             });
         }
-        ImageItem item = getItem(i);
+        ImageItem item = getItem(viewHolder.getLayoutPosition());
         imagesViewHolder.mSuperCheckBox.setChecked(mSelectItemBean.contains(item));
         imagesViewHolder.mSuperCheckBox.setVisibility(mSelectorSpec.getMaxSelectImage() == 1 ? View.GONE : View.VISIBLE);
         imagesViewHolder.mMaskView.setVisibility(mSelectItemBean.contains(item) ? View.VISIBLE : View.GONE);
-        mSelectorSpec.getImageLoader().imageLoader(imagesViewHolder.mImage, item.path);
+        mSelectorSpec.getImageLoader().imageLoader(imagesViewHolder.mImage, item.path, getImageResize(mContext), getImageResize(mContext), R.drawable.ic_default_image);
     }
 
-    @Override
-    public int getItemCount() {
-        return mImageItems.size();
+    private int getSurePosition(int position) {
+        return mIsOpenCamera ? position - 1 : position;
     }
 
     public ImageItem getItem(int position) {
-        return mImageItems.get(position);
+        return mImageItems.get(getSurePosition(position));
     }
 
     private int getImageResize(Context context) {
@@ -121,12 +155,36 @@ public class ImagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         return mImageResize;
     }
 
+    @Override
+    public int getItemViewType(int position) {
+        return (mIsOpenCamera && position == 0) ? CAMERA_ITEM : IMAGE_ITEM;
+    }
+
+    @Override
+    public int getItemCount() {
+        return mImageItems == null ? 0 : (mIsOpenCamera ? mImageItems.size() + 1 : mImageItems.size());
+    }
+
+    public List<ImageItem> getData() {
+        return mImageItems;
+    }
+
     public interface OnItemClickListener {
         void onItemClick(int position);
     }
 
+    public interface OnTakePhotoListener {
+        void onTakePhoto();
+    }
+
     public interface OnImageSelectListener {
         void onImageSelect(SuperCheckBox checkBox, int position);
+    }
+
+    private static class CameraViewHolder extends RecyclerView.ViewHolder {
+        public CameraViewHolder(View itemView) {
+            super(itemView);
+        }
     }
 
     private static class ImagesViewHolder extends RecyclerView.ViewHolder {

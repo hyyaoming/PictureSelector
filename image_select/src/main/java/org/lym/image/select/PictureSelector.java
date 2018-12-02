@@ -8,7 +8,7 @@ import android.support.v4.app.Fragment;
 import org.lym.image.select.ui.SelectImageActivity;
 
 import java.lang.ref.WeakReference;
-import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Doc  图片选择器入口
@@ -31,7 +31,7 @@ public class PictureSelector {
     }
 
     private PictureSelector(Fragment fragment) {
-        this(null, fragment);
+        this(fragment.getActivity(), fragment);
     }
 
     public static PictureSelector with(Fragment fragment) {
@@ -42,12 +42,12 @@ public class PictureSelector {
         return new PictureSelector(activity);
     }
 
-    public SelectorSpec selectSpec() {
-        return SelectorSpec.getCleanInstance().withPictureSelector(this);
+    public static ArrayList<String> obtainPathResult(Intent data) {
+        return data.getStringArrayListExtra(SelectImageActivity.RESULT_IMAGES);
     }
 
-    public static List<String> obtainPathResult(Intent data) {
-        return data.getStringArrayListExtra(SelectImageActivity.RESULT_IMAGES);
+    public SelectorSpec selectSpec() {
+        return SelectorSpec.getCleanInstance().withPictureSelector(this);
     }
 
     @Nullable

@@ -2,7 +2,6 @@ package org.lym.image.select.ui;
 
 import android.animation.ObjectAnimator;
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,15 +18,17 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.lym.image.select.tools.FileTools;
 import org.lym.image.select.R;
 import org.lym.image.select.SelectorSpec;
 import org.lym.image.select.adapter.PreviewAdapter;
 import org.lym.image.select.bean.ImageItem;
-import org.lym.image.select.bean.SelectImageHelper;
+import org.lym.image.select.tools.SelectImageHelper;
 import org.lym.image.select.weight.FixViewPager;
 import org.lym.image.select.weight.SuperCheckBox;
 import org.lym.image.select.weight.photoview.OnPhotoTapListener;
 
+import java.io.File;
 import java.util.ArrayList;
 
 import static org.lym.image.select.ui.SelectImageActivity.RESULT_IMAGES;
@@ -49,6 +50,13 @@ public class PreviewImageActivity extends AppCompatActivity implements OnPhotoTa
     private RelativeLayout mTitleBar;
     private RelativeLayout mBottomBar;
     private SelectorSpec mSelectorSpec;
+    private File mCropImageFile;
+    private static final int IMAGE_CROP_CODE = 1;
+
+    public static void start(Activity activity, int requestCode) {
+        Intent intent = new Intent(activity, PreviewImageActivity.class);
+        activity.startActivityForResult(intent, requestCode);
+    }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -72,56 +80,9 @@ public class PreviewImageActivity extends AppCompatActivity implements OnPhotoTa
         }
     }
 
-    private void registerListener() {
-        mPreViewCheckbox.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (mSelectImageHelper.getSelectCount() < mSelectorSpec.getMaxSelectImage()) {
-                    mSelectImageHelper.notifyImageItem(mPreViewPager.getCurrentItem());
-                    resetCompleteBtn();
-                } else {
-                    mPreViewCheckbox.setChecked(false);
-                    Toast.makeText(PreviewImageActivity.this, getString(R.string.max_select_image, String.valueOf(mSelectorSpec.getMaxSelectImage())), Toast.LENGTH_LONG).show();
-                }
-            }
-        });
-        mPreViewPager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
-            @Override
-            public void onPageSelected(int position) {
-                resetCheckBox(position);
-                resetImageTitle(position);
-            }
-        });
-        mSelectCompleteBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent();
-                ArrayList<String> paths = new ArrayList<>();
-                for (ImageItem item : mSelectImageHelper.getSelectImageItem()) {
-                    paths.add(item.path);
-                }
-                intent.putStringArrayListExtra(RESULT_IMAGES, paths);
-                setResult(Activity.RESULT_OK, intent);
-                finish();
-            }
-        });
-    }
-
     private void initData() {
         mSelectImageHelper = SelectImageHelper.getInstance();
         mSelectorSpec = SelectorSpec.getInstance();
-    }
-
-    public static void start(Activity activity, int requestCode) {
-        Intent intent = new Intent(activity, PreviewImageActivity.class);
-        activity.startActivityForResult(intent, requestCode);
-    }
-
-    private void initAdapter() {
-        PreviewAdapter mPreViewAdapter = new PreviewAdapter(mSelectImageHelper.getAllImageItem(), this);
-        mPreViewAdapter.setOnPhotoTapListener(this);
-        mPreViewPager.setAdapter(mPreViewAdapter);
-        mPreViewPager.setCurrentItem(mSelectImageHelper.selectPosition, false);
     }
 
     private void initView() {
@@ -136,18 +97,81 @@ public class PreviewImageActivity extends AppCompatActivity implements OnPhotoTa
         resetCompleteBtn();
     }
 
-    private void resetCompleteBtn() {
-        int selectImageCount = mSelectImageHelper.getSelectCount();
-        if (selectImageCount > 0) {
-            String maxSelectImageCount = String.valueOf(mSelectorSpec.getMaxSelectImage());
-            String selectImageWithMaxCount = getString(R.string.complete_with_select_image_count, String.valueOf(selectImageCount), maxSelectImageCount);
-            mSelectCompleteBtn.setText(selectImageWithMaxCount);
-            mSelectCompleteBtn.setEnabled(true);
-        } else {
-            mSelectCompleteBtn.setText(R.string.complete);
-            mSelectCompleteBtn.setEnabled(false);
+    private void registerListener() {
+        //选中当前图片按钮
+        mPreViewCheckbox.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (mSelectImageHelper.getSelectCount() >= mSelectorSpec.getMaxSelectImage() && mPreViewCheckbox.isChecked()) {
+                    mPreViewCheckbox.setChecked(false);
+                    Toast.makeText(PreviewImageActivity.this, getString(R.string.max_select_image, String.valueOf(mSelectorSpec.getMaxSelectImage())), Toast.LENGTH_LONG).show();
+                } else {
+                    mSelectImageHelper.notifyImageItem(mSelectorSpec.isOpenCamera() ? mPreViewPager.getCurrentItem() + 1 : mPreViewPager.getCurrentItem());
+                    resetCompleteBtn();
+                }
+            }
+        });
+        //viewPager切换事件
+        mPreViewPager.addOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
+            @Override
+            public void onPageSelected(int position) {
+                resetCheckBox(position);
+                resetImageTitle(position);
+            }
+        });
+        //完成选择图片按钮
+        mSelectCompleteBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (mSelectorSpec.isNeedCrop() && mSelectorSpec.singleImage()) {
+                    mCropImageFile = FileTools.getCropImageFile(PreviewImageActivity.this);
+                    FileTools.crop(PreviewImageActivity.this, mSelectImageHelper.getSelectImageItem().get(0).path, mCropImageFile, IMAGE_CROP_CODE, mSelectorSpec);
+                } else {
+                    complete(null);
+                }
+            }
+        });
+        findViewById(R.id.iv_back).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish();
+            }
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == IMAGE_CROP_CODE && resultCode == RESULT_OK) {
+            complete(new ImageItem(mCropImageFile.getPath(), mCropImageFile.getName()));
         }
-        mSelectCompleteBtn.setEnabled(selectImageCount > 0);
+    }
+
+    private void complete(ImageItem image) {
+        Intent intent = new Intent();
+        ArrayList<String> paths = new ArrayList<>();
+        if (null == image) {
+            for (ImageItem item : mSelectImageHelper.getSelectImageItem()) {
+                paths.add(item.path);
+            }
+        } else {
+            paths.add(image.path);
+        }
+        intent.putStringArrayListExtra(RESULT_IMAGES, paths);
+        setResult(Activity.RESULT_OK, intent);
+        finish();
+    }
+
+    private void initAdapter() {
+        PreviewAdapter mPreViewAdapter = new PreviewAdapter(mSelectImageHelper.getAllImageItem(), this);
+        mPreViewAdapter.setOnPhotoTapListener(this);
+        mPreViewPager.setAdapter(mPreViewAdapter);
+        mPreViewPager.setCurrentItem(mSelectImageHelper.selectPosition, false);
+    }
+
+    private void resetCheckBox(int position) {
+        ImageItem imageItem = mSelectImageHelper.getAllImageItem().get(position);
+        mPreViewCheckbox.setChecked(mSelectImageHelper.contains(imageItem));
     }
 
     private void resetImageTitle(int position) {
@@ -157,9 +181,22 @@ public class PreviewImageActivity extends AppCompatActivity implements OnPhotoTa
         mSelectImageTitle.setText(imageCount);
     }
 
-    private void resetCheckBox(int position) {
-        ImageItem imageItem = mSelectImageHelper.getAllImageItem().get(position);
-        mPreViewCheckbox.setChecked(mSelectImageHelper.contains(imageItem));
+    private void resetCompleteBtn() {
+        int selectImageCount = mSelectImageHelper.getSelectCount();
+        if (selectImageCount > 0 && !mSelectorSpec.singleImage()) {
+            String maxSelectImageCount = String.valueOf(mSelectorSpec.getMaxSelectImage());
+            String selectImageWithMaxCount = getString(R.string.complete_with_select_image_count, String.valueOf(selectImageCount), maxSelectImageCount);
+            mSelectCompleteBtn.setText(selectImageWithMaxCount);
+            mSelectCompleteBtn.setEnabled(true);
+        } else {
+            mSelectCompleteBtn.setText(R.string.complete);
+            mSelectCompleteBtn.setEnabled(selectImageCount > 0 && mSelectorSpec.singleImage());
+        }
+    }
+
+    @Override
+    public void onPhotoTap(ImageView view, float x, float y) {
+        showOrHideBar();
     }
 
     /**
@@ -174,10 +211,5 @@ public class PreviewImageActivity extends AppCompatActivity implements OnPhotoTa
             ObjectAnimator.ofFloat(mBottomBar, "translationY", mBottomBar.getTranslationY(), 0).setDuration(300).start();
         }
         mHideTitleBar = !mHideTitleBar;
-    }
-
-    @Override
-    public void onPhotoTap(ImageView view, float x, float y) {
-        showOrHideBar();
     }
 }
