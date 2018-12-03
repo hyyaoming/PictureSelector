@@ -111,8 +111,8 @@ public final class SelectorSpec {
         return mNeedCrop;
     }
 
-    public SelectorSpec setNeedCrop(boolean needCrop) {
-        this.mNeedCrop = needCrop;
+    public SelectorSpec needCrop() {
+        this.mNeedCrop = true;
         return this;
     }
 
@@ -147,8 +147,8 @@ public final class SelectorSpec {
         return mIsOpenCamera;
     }
 
-    public SelectorSpec setOpenCamera(boolean openCamera) {
-        this.mIsOpenCamera = openCamera;
+    public SelectorSpec setOpenCamera() {
+        this.mIsOpenCamera = true;
         return this;
     }
 
